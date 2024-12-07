@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-from typing import TYPE_CHECKING, TypeVar, Any
-
+from typing import TYPE_CHECKING
 import numpy as np
-from numba import prange
-from numba import njit as _njit
+from numba import njit, prange
 
 from .tensor_data import (
     MAX_DIMS,
@@ -16,8 +13,7 @@ from .tensor_data import (
 from .tensor_ops import MapProto, TensorOps
 
 if TYPE_CHECKING:
-    from typing import Callable, Optional
-
+    from typing import Any, Callable, Optional
     from .tensor import Tensor
     from .tensor_data import Index, Shape, Storage, Strides
 
@@ -26,16 +22,9 @@ if TYPE_CHECKING:
 # This code will JIT compile fast versions your tensor_data functions.
 # If you get an error, read the docs for NUMBA as to what is allowed
 # in these functions.
-Fn = TypeVar("Fn")
-
-
-def njit(fn: Fn, **kwargs: Any) -> Fn:
-    return _njit(inline="always", **kwargs)(fn)  # type: ignore
-
-
-to_index = njit(to_index)
-index_to_position = njit(index_to_position)
-broadcast_index = njit(broadcast_index)
+to_index = njit(inline="always")(to_index)
+index_to_position = njit(inline="always")(index_to_position)
+broadcast_index = njit(inline="always")(broadcast_index)
 
 
 class FastOps(TensorOps):
@@ -289,8 +278,6 @@ def tensor_reduce(fn: Callable[[float, float], float]) -> Any:
 
     return njit(parallel=True)(_reduce)
 
-
-
 def _tensor_matrix_multiply(
     out: Storage,
     out_shape: Shape,
@@ -302,43 +289,52 @@ def _tensor_matrix_multiply(
     b_shape: Shape,
     b_strides: Strides,
 ) -> None:
-    """NUMBA tensor matrix multiply function.
-
+    """
+    NUMBA tensor matrix multiply function.
     Should work for any tensor shapes that broadcast as long as
 
-    ```
     assert a_shape[-1] == b_shape[-2]
-    ```
 
     Optimizations:
-
     * Outer loop in parallel
     * No index buffers or function calls
     * Inner loop should have no global writes, 1 multiply.
 
-
     Args:
-    ----
-        out (Storage): storage for `out` tensor
-        out_shape (Shape): shape for `out` tensor
-        out_strides (Strides): strides for `out` tensor
-        a_storage (Storage): storage for `a` tensor
-        a_shape (Shape): shape for `a` tensor
-        a_strides (Strides): strides for `a` tensor
-        b_storage (Storage): storage for `b` tensor
-        b_shape (Shape): shape for `b` tensor
-        b_strides (Strides): strides for `b` tensor
+    out (Storage): storage for `out` tensor
+    out_shape (Shape): shape for `out` tensor
+    out_strides (Strides): strides for `out` tensor
+    a_storage (Storage): storage for `a` tensor
+    a_shape (Shape): shape for `a` tensor
+    a_strides (Strides): strides for `a` tensor
+    b_storage (Storage): storage for `b` tensor
+    b_shape (Shape): shape for `b` tensor
+    b_strides (Strides): strides for `b` tensor
 
     Returns:
-    -------
-        None : Fills in `out`
-
+    None: Fills in `out`
     """
+
     a_batch_stride = a_strides[0] if a_shape[0] > 1 else 0
     b_batch_stride = b_strides[0] if b_shape[0] > 1 else 0
 
-    raise NotImplementedError("Need to include this file from past assignment.")
+    # ASSIGN3.2
+    for i1 in prange(out_shape[0]):
+        for i2 in prange(out_shape[1]):
+            for i3 in prange(out_shape[2]):
+                a_inner = i1 * a_batch_stride + i2 * a_strides[1]
+                b_inner = i1 * b_batch_stride + i3 * b_strides[2]
+                acc = 0.0
+                for _ in range(a_shape[2]):
+                    acc += a_storage[a_inner] * b_storage[b_inner]
+                    a_inner += a_strides[2]
+                    b_inner += b_strides[1]
+                out_position = (
+                    i1 * out_strides[0] + i2 * out_strides[1] + i3 * out_strides[2]
+                )
+                out[out_position] = acc
+    # END ASSIGN3.2
+tensor_matrix_multiply = njit(parallel=True, fastmath=True)(_tensor_matrix_multiply)
 
 
-tensor_matrix_multiply = njit(_tensor_matrix_multiply, parallel=True)
 assert tensor_matrix_multiply is not None
