@@ -5,5 +5,4 @@ plotly==4.14.3
 pydot==1.4.1
 python-mnist
 streamlit==0.75.0
-torch==1.6.0
 watchdog==1.0.2
