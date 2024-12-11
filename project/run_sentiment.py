@@ -9,11 +9,25 @@ BACKEND = minitorch.TensorBackend(minitorch.FastOps)
 
 
 def RParam(*shape):
+    """Create a random parameter tensor.
+
+    Args:
+        *shape: Variable length argument list of tensor dimensions
+
+    Returns:
+        Parameter: A Parameter object containing random values between -0.05 and 0.05
+    """
     r = 0.1 * (minitorch.rand(shape, backend=BACKEND) - 0.5)
     return minitorch.Parameter(r)
 
 
 class Linear(minitorch.Module):
+    """A linear transformation layer.
+
+    Args:
+        in_size: Number of input features
+        out_size: Number of output features
+    """
     def __init__(self, in_size, out_size):
         super().__init__()
         self.weights = RParam(in_size, out_size)
@@ -21,6 +35,14 @@ class Linear(minitorch.Module):
         self.out_size = out_size
 
     def forward(self, x):
+        """Forward pass of linear layer.
+
+        Args:
+            x: Input tensor of shape (batch_size, in_size)
+
+        Returns:
+            Tensor: Output tensor of shape (batch_size, out_size)
+        """
         batch, in_size = x.shape
         return (
             x.view(batch, in_size) @ self.weights.value.view(in_size, self.out_size)
@@ -28,28 +50,47 @@ class Linear(minitorch.Module):
 
 
 class Conv1d(minitorch.Module):
+    """1D convolutional layer.
+
+    Args:
+        in_channels: Number of input channels
+        out_channels: Number of output channels
+        kernel_width: Width of the convolutional kernel
+    """
     def __init__(self, in_channels, out_channels, kernel_width):
         super().__init__()
         self.weights = RParam(out_channels, in_channels, kernel_width)
         self.bias = RParam(1, out_channels, 1)
 
     def forward(self, input):
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        """Forward pass of conv1d layer.
+
+        Args:
+            input: Input tensor of shape (batch, in_channels, seq_len)
+
+        Returns:
+            Tensor: Output tensor of shape (batch, out_channels, seq_len - kernel_width + 1)
+        """
+        out = minitorch.conv1d(input, self.weights.value) + self.bias.value
+        # out: [batch, out_channels, (seq_len - kernel_width + 1)]
+        return out
 
 
 class CNNSentimentKim(minitorch.Module):
-    """
-    Implement a CNN for Sentiment classification based on Y. Kim 2014.
+    """CNN for Sentiment classification based on Y. Kim 2014.
 
-    This model should implement the following procedure:
+    This model implements:
+    1. 1D convolution with input_channels=embedding_dim, feature_map_size=100 output channels
+       and [3,4,5]-sized kernels followed by ReLU activation
+    2. Max-over-time pooling across each feature map
+    3. Linear layer to size C (number of classes) with ReLU and 25% Dropout
+    4. Sigmoid over class dimension
 
-    1. Apply a 1d convolution with input_channels=embedding_dim
-        feature_map_size=100 output channels and [3, 4, 5]-sized kernels
-        followed by a non-linear activation function (the paper uses tanh, we apply a ReLu)
-    2. Apply max-over-time across each feature map
-    3. Apply a Linear to size C (number of classes) followed by a ReLU and Dropout with rate 25%
-    4. Apply a sigmoid over the class dimension.
+    Args:
+        feature_map_size: Number of feature maps (default: 100)
+        embedding_size: Size of word embeddings (default: 50)
+        filter_sizes: List of kernel sizes (default: [3,4,5])
+        dropout: Dropout rate (default: 0.25)
     """
 
     def __init__(
@@ -61,19 +102,49 @@ class CNNSentimentKim(minitorch.Module):
     ):
         super().__init__()
         self.feature_map_size = feature_map_size
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        self.conv1 = Conv1d(embedding_size, feature_map_size, filter_sizes[0])
+        self.conv2 = Conv1d(embedding_size, feature_map_size, filter_sizes[1])
+        self.conv3 = Conv1d(embedding_size, feature_map_size, filter_sizes[2])
+        self.linear = Linear(feature_map_size, 1)
+        self.dropout = dropout
 
     def forward(self, embeddings):
+        """Forward pass of the CNN model.
+
+        Args:
+            embeddings: Input tensor of shape [batch x sentence_length x embedding_dim]
+
+        Returns:
+            Tensor: Output probabilities of shape [batch]
         """
-        embeddings tensor: [batch x sentence length x embedding dim]
-        """
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        inputs = embeddings.permute(0, 2, 1)
+
+        conv_out1 = self.conv1(inputs).relu()
+        conv_out2 = self.conv2(inputs).relu()
+        conv_out3 = self.conv3(inputs).relu()
+
+        pooled_out1 = minitorch.max(conv_out1, dim=2)
+        pooled_out2 = minitorch.max(conv_out2, dim=2)
+        pooled_out3 = minitorch.max(conv_out3, dim=2)
+
+        combined_out = pooled_out1 + pooled_out2 + pooled_out3
+
+        fc_out = self.linear(combined_out.view(combined_out.shape[0], self.feature_map_size))
+        fc_out = minitorch.dropout(fc_out, self.dropout, self.mode == "eval")
+
+        return fc_out.sigmoid().view(fc_out.shape[0])
 
 
-# Evaluation helper methods
 def get_predictions_array(y_true, model_output):
+    """Convert model outputs to prediction arrays.
+
+    Args:
+        y_true: Ground truth labels
+        model_output: Model predictions
+
+    Returns:
+        list: List of tuples containing (true_label, predicted_label, logit)
+    """
     predictions_array = []
     for j, logit in enumerate(model_output.to_numpy()):
         true_label = y_true[j]
@@ -86,6 +157,14 @@ def get_predictions_array(y_true, model_output):
 
 
 def get_accuracy(predictions_array):
+    """Calculate accuracy from predictions array.
+
+    Args:
+        predictions_array: List of (true_label, predicted_label, logit) tuples
+
+    Returns:
+        float: Accuracy score between 0 and 1
+    """
     correct = 0
     for y_true, y_pred, logit in predictions_array:
         if y_true == y_pred:
@@ -105,6 +184,17 @@ def default_log_fn(
     validation_predictions,
     validation_accuracy,
 ):
+    """Default logging function for training progress.
+
+    Args:
+        epoch: Current epoch number
+        train_loss: Training loss for current epoch
+        losses: List of historical losses
+        train_predictions: Training predictions
+        train_accuracy: List of training accuracies
+        validation_predictions: Validation predictions
+        validation_accuracy: List of validation accuracies
+    """
     global best_val
     best_val = (
         best_val if best_val > validation_accuracy[-1] else validation_accuracy[-1]
@@ -116,7 +206,14 @@ def default_log_fn(
 
 
 class SentenceSentimentTrain:
+    """Training class for sentiment classification models."""
+
     def __init__(self, model):
+        """Initialize trainer.
+
+        Args:
+            model: Model to train
+        """
         self.model = model
 
     def train(
@@ -128,6 +225,16 @@ class SentenceSentimentTrain:
         data_val=None,
         log_fn=default_log_fn,
     ):
+        """Train the model.
+
+        Args:
+            data_train: Training data tuple (X, y)
+            learning_rate: Learning rate for optimization
+            batch_size: Batch size for training
+            max_epochs: Maximum number of epochs
+            data_val: Optional validation data tuple (X, y)
+            log_fn: Logging function for training progress
+        """
         model = self.model
         (X_train, y_train) = data_train
         n_training_samples = len(X_train)
@@ -200,6 +307,19 @@ class SentenceSentimentTrain:
 def encode_sentences(
     dataset, N, max_sentence_len, embeddings_lookup, unk_embedding, unks
 ):
+    """Encode sentences using word embeddings.
+
+    Args:
+        dataset: Dataset containing sentences
+        N: Number of sentences to encode
+        max_sentence_len: Maximum sentence length for padding
+        embeddings_lookup: Word embeddings lookup
+        unk_embedding: Embedding vector for unknown words
+        unks: Set to track unknown words
+
+    Returns:
+        tuple: (X, y) where X contains encoded sentences and y contains labels
+    """
     Xs = []
     ys = []
     for sentence in dataset["sentence"][:N]:
@@ -222,6 +342,17 @@ def encode_sentences(
 
 
 def encode_sentiment_data(dataset, pretrained_embeddings, N_train, N_val=0):
+    """Encode sentiment dataset using pretrained embeddings.
+
+    Args:
+        dataset: Raw sentiment dataset
+        pretrained_embeddings: Pretrained word embeddings
+        N_train: Number of training examples
+        N_val: Number of validation examples
+
+    Returns:
+        tuple: ((X_train, y_train), (X_val, y_val)) containing encoded data
+    """
     #  Determine max sentence length for padding
     max_sentence_len = 0
     for sentence in dataset["train"]["sentence"] + dataset["validation"]["sentence"]:
