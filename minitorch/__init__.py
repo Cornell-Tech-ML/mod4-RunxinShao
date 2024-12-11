@@ -1,3 +1,10 @@
+"""MiniTorch is a minimal implementation of PyTorch for educational purposes.
+
+This package provides core tensor operations, automatic differentiation, neural network modules,
+optimization algorithms and utilities for machine learning. It includes both CPU and CUDA
+implementations for high performance computing.
+"""
+
 from .testing import MathTest, MathTestVariable  # type: ignore # noqa: F401,F403
 from .datasets import *  # noqa: F401,F403
 from .optim import *  # noqa: F401,F403

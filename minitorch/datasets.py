@@ -1,3 +1,10 @@
+"""Dataset module containing various 2D classification datasets.
+
+This module provides functions to generate synthetic 2D classification datasets
+for testing and visualization purposes. Each dataset has different decision
+boundaries and characteristics.
+"""
+
 import math
 import random
 from dataclasses import dataclass
@@ -5,6 +12,17 @@ from typing import List, Tuple
 
 
 def make_pts(N: int) -> List[Tuple[float, float]]:
+    """Generate N random 2D points with coordinates between 0 and 1.
+
+    Args:
+    ----
+        N: Number of points to generate
+
+    Returns:
+    -------
+        List of tuples containing (x,y) coordinates
+
+    """
     X = []
     for i in range(N):
         x_1 = random.random()
@@ -15,12 +33,33 @@ def make_pts(N: int) -> List[Tuple[float, float]]:
 
 @dataclass
 class Graph:
+    """Class representing a 2D classification dataset.
+
+    Attributes
+    ----------
+        N: Number of points in the dataset
+        X: List of (x,y) coordinates for each point
+        y: List of binary labels (0 or 1) for each point
+
+    """
+
     N: int
     X: List[Tuple[float, float]]
     y: List[int]
 
 
 def simple(N: int) -> Graph:
+    """Generate dataset with vertical decision boundary at x=0.5.
+
+    Args:
+    ----
+        N: Number of points to generate
+
+    Returns:
+    -------
+        Graph object containing points and labels
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -30,6 +69,17 @@ def simple(N: int) -> Graph:
 
 
 def diag(N: int) -> Graph:
+    """Generate dataset with diagonal decision boundary.
+
+    Args:
+    ----
+        N: Number of points to generate
+
+    Returns:
+    -------
+        Graph object containing points and labels
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -39,6 +89,17 @@ def diag(N: int) -> Graph:
 
 
 def split(N: int) -> Graph:
+    """Generate dataset with two vertical decision boundaries.
+
+    Args:
+    ----
+        N: Number of points to generate
+
+    Returns:
+    -------
+        Graph object containing points and labels
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -48,6 +109,17 @@ def split(N: int) -> Graph:
 
 
 def xor(N: int) -> Graph:
+    """Generate dataset with XOR-like decision boundary.
+
+    Args:
+    ----
+        N: Number of points to generate
+
+    Returns:
+    -------
+        Graph object containing points and labels
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -57,6 +129,17 @@ def xor(N: int) -> Graph:
 
 
 def circle(N: int) -> Graph:
+    """Generate dataset with circular decision boundary.
+
+    Args:
+    ----
+        N: Number of points to generate
+
+    Returns:
+    -------
+        Graph object containing points and labels
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -67,6 +150,18 @@ def circle(N: int) -> Graph:
 
 
 def spiral(N: int) -> Graph:
+    """Generate dataset with spiral decision boundary.
+
+    Args:
+    ----
+        N: Number of points to generate
+
+    Returns:
+    -------
+        Graph object containing points and labels
+
+    """
+
     def x(t: float) -> float:
         return t * math.cos(t) / 20.0
 

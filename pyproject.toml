@@ -76,6 +76,8 @@ exclude = [
 
 ignore = [
     "ANN101",
+    "ANN001",
+    "ANN003",
     "ANN401",
     "N801",
     "E203",
