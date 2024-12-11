@@ -153,7 +153,7 @@ Epoch 39, loss 14.875531265506702, train accuracy: 86.22%
 Validation accuracy: 73.00%
 Best Valid accuracy: 73.00%
 
-mnist 
+mnist
 
 Epoch 1 loss 2.2872652048553928 valid acc 2/16
 Epoch 1 loss 11.4794097991979 valid acc 3/16
